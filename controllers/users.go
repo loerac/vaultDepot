@@ -4,6 +4,7 @@ import (
     "fmt"
     "net/http"
 
+    "github.com/loerac/vaultDepot/compat"
     "github.com/loerac/vaultDepot/models"
     "github.com/loerac/vaultDepot/views"
 )
@@ -34,7 +35,7 @@ func NewUsers(userSrv *models.UserService) *Users {
  *
  * @action: GET /signup
  **/
-func (userRW *Users) NewSignup(writer http.ResponseWriter, request *http.Request) {
+func (userRW *Users) New(writer http.ResponseWriter, request *http.Request) {
     if err := userRW.NewView.Render(writer, nil); err != nil {
         panic(err)
     }
@@ -49,7 +50,7 @@ func (userRW *Users) NewSignup(writer http.ResponseWriter, request *http.Request
  *
  * @action: POST /signup
  **/
-func (userRW *Users) CreateSignup(writer http.ResponseWriter, request *http.Request) {
+func (userRW *Users) Create(writer http.ResponseWriter, request *http.Request) {
     form := SignupForm{}
     if err := parseForm(request, &form); err != nil {
         panic(err)
@@ -67,7 +68,13 @@ func (userRW *Users) CreateSignup(writer http.ResponseWriter, request *http.Requ
         return
     }
 
-    fmt.Fprintln(writer, "Created user:", user)
+    err = userRW.signIn(writer, &user)
+    if err != nil {
+        http.Error(writer, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    http.Redirect(writer, request, "/cookietest", http.StatusFound)
 }
 
 /**
@@ -86,14 +93,77 @@ func (userRW *Users) Login(writer http.ResponseWriter, request *http.Request) {
     }
 
     user, err := userRW.userSrv.Authenticate(form.Email, form.Passwd)
-    switch err {
-    case models.ErrNotFound:
-        fallthrough
-    case models.ErrInvalidPassword:
-        fmt.Fprintln(writer, "Email and/or password is incorrect")
-    case nil:
-        fmt.Fprintln(writer, user)
-    default:
-        http.Error(writer, err.Error(), http.StatusInternalServerError)
+    if err != nil {
+        switch err {
+        case models.ErrNotFound:
+            fallthrough
+        case models.ErrInvalidPassword:
+            fmt.Fprintln(writer, "Email and/or password is incorrect")
+        default:
+            http.Error(writer, err.Error(), http.StatusInternalServerError)
+        }
+
+        return
     }
+
+    err = userRW.signIn(writer, user)
+    if err != nil {
+        http.Error(writer, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    http.Redirect(writer, request, "/cookietest", http.StatusFound)
+}
+
+/* ==============================*/
+/*          MISC METHODS         */
+/* ==============================*/
+
+/**
+ * @brief:  Sign the given user in via cookies
+ *
+ * @param:  writer - Set user's cookie
+ * @param:  user - Update remember token
+ *
+ * @return: nil on success, else error
+ **/
+func (userRW *Users) signIn(writer http.ResponseWriter, user *models.User) error {
+    if user.Remember == "" {
+        token, err := compat.RememberToken()
+        if err != nil {
+            return err
+        }
+
+        user.Remember = token
+        err = userRW.userSrv.Update(user)
+        if err != nil {
+            return err
+        }
+    }
+
+    cookie := http.Cookie {
+        Name:       "remember_token",
+        Value:      user.Remember,
+        HttpOnly:   true,
+    }
+    http.SetCookie(writer, &cookie)
+
+    return nil
+}
+
+/* Dev testing: display cookies set on the current user */
+func (userRW *Users) CookiesTest(writer http.ResponseWriter, request *http.Request) {
+    cookie, err := request.Cookie("remember_token")
+    if err != nil {
+        http.Error(writer, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    user, err := userRW.userSrv.ByRemember(cookie.Value)
+    if err != nil {
+        http.Error(writer, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    fmt.Fprintln(writer, user)
 }
