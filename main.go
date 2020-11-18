@@ -15,7 +15,7 @@ const (
     port    = 5432
     user    = "postgres"
     passwd  = "your-password"
-    dbname  = "database-name"
+    dbname  = "your-dbname"
 )
 
 func main() {
@@ -47,12 +47,15 @@ func main() {
     router := mux.NewRouter()
     router.Handle("/", staticCtrl.Home).Methods("GET")
     router.Handle("/contact", staticCtrl.Contact).Methods("GET")
-    router.HandleFunc("/signup", usersCtrl.NewSignup).Methods("GET")
-    router.HandleFunc("/signup", usersCtrl.CreateSignup).Methods("POST")
+    router.HandleFunc("/signup", usersCtrl.New).Methods("GET")
+    router.HandleFunc("/signup", usersCtrl.Create).Methods("POST")
     router.Handle("/login", usersCtrl.LoginView).Methods("GET")
     router.HandleFunc("/login", usersCtrl.Login).Methods("POST")
     router.Handle("/vault", vaultCtrl.VaultView).Methods("GET")
     router.HandleFunc("/vault", vaultCtrl.Vault).Methods("POST")
+
+    /* Dev testing: display cookies set on the current user */
+    router.HandleFunc("/cookietest", usersCtrl.CookiesTest).Methods("GET")
 
     fmt.Println("Listening on http://localhost:3000")
     fmt.Println(http.ListenAndServe(":3000", router))

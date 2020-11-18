@@ -3,6 +3,8 @@ package models
 import (
     "fmt"
 
+    "github.com/loerac/vaultDepot/compat"
+
     "github.com/jinzhu/gorm"
     _ "github.com/jinzhu/gorm/dialects/postgres"
     "golang.org/x/crypto/bcrypt"
@@ -22,8 +24,11 @@ func NewUserService(connInfo string) (*UserService, error) {
     }
     db.LogMode(true)
 
+    hmac := compat.NewHMAC(hmacSecretKey)
+
     return &UserService{
         db: db,
+        hmac: hmac,
     }, nil
 }
 
@@ -61,6 +66,16 @@ func (userSrv *UserService) Create(user *User) error {
     user.PasswordHash = string(hashedBytes)
     user.Password = ""
 
+    /* Set up remember token */
+    if user.Remember == "" {
+        token, err := compat.RememberToken()
+        if err != nil {
+            return err
+        }
+        user.Remember = token
+    }
+    user.RememberHash = userSrv.hmac.Hash(user.Remember)
+
     return userSrv.db.Create(user).Error
 }
 
@@ -72,6 +87,10 @@ func (userSrv *UserService) Create(user *User) error {
  * @return: nil on success, else error
  **/
 func (userSrv *UserService) Update(user *User) error {
+    if user.Remember != "" {
+        user.RememberHash = userSrv.hmac.Hash(user.Remember)
+    }
+
     return userSrv.db.Save(user).Error
 }
 
@@ -133,6 +152,27 @@ func (userSrv *UserService) ByID(id uint) (*User, error) {
 func (userSrv *UserService) ByEmail(email string) (*User, error) {
     var user User
     db := userSrv.db.Where("email = ?", email)
+    err := first(db, &user)
+    if err != nil {
+        return nil, err
+    }
+
+    return &user, nil
+}
+
+/**
+ * @brief:  Look up a user with given remember token
+ *
+ * @param:  token - Token of user
+ *
+ * @return: If user is found, return nil
+ *          If user not found, return ErrNotFound
+ *          Else, return error
+ **/
+func (userSrv *UserService) ByRemember(token string) (*User, error) {
+    var user User
+    rememberHash := userSrv.hmac.Hash(token)
+    db := userSrv.db.Where("remember_hash = ?", rememberHash)
     err := first(db, &user)
     if err != nil {
         return nil, err
