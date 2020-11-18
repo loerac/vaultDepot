@@ -49,3 +49,19 @@ func String(n int) (string, error) {
 func RememberToken() (string, error) {
     return String(RememberTokenBytes)
 }
+
+/**
+ * @brief:  Get number of bytes used in any string
+ *
+ * @param:  base64String - Remember token string
+ *
+ * @return: Length of string on success, else -1 with error
+ **/
+func NBtyes(base64String string) (int, error) {
+    b, err := base64.URLEncoding.DecodeString(base64String)
+    if err != nil {
+        return -1, err
+    }
+
+    return len(b), nil
+}

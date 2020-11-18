@@ -11,24 +11,43 @@ import (
 )
 
 /**
- * @brief:  Connecting to user database with GORM
+ * @brief:  Initialize user database with GORM, and
+ *          initialize user validation
  *
  * @param:  connInfo - Information of database
  *
  * @return: UserService on success, else error
  **/
-func NewUserService(connInfo string) (*UserService, error) {
+func NewUserService(connInfo string) (UserService, error) {
+    db, err := newUserGorm(connInfo)
+    if err != nil {
+        return nil, err
+    }
+
+    hmac := compat.NewHMAC(hmacSecretKey)
+    userValid := newUserValidator(db, hmac)
+
+    return &userService{
+        UserDB: userValid,
+    }, nil
+}
+
+/**
+ * @brief:  Connecting to user database with GORM
+ *
+ * @param:  connInfo - Information of database
+ *
+ * @return: userGorm on success, else error
+ **/
+func newUserGorm(connInfo string) (*userGorm, error) {
     db, err := gorm.Open("postgres", connInfo)
     if err != nil {
         return nil, err
     }
     db.LogMode(true)
 
-    hmac := compat.NewHMAC(hmacSecretKey)
-
-    return &UserService{
-        db: db,
-        hmac: hmac,
+    return &userGorm{
+        db:     db,
     }, nil
 }
 
@@ -37,8 +56,8 @@ func NewUserService(connInfo string) (*UserService, error) {
  *
  * @return: nil on success, else error
  **/
-func (userSrv *UserService) Close() error {
-    return userSrv.db.Close()
+func (usergorm *userGorm) Close() error {
+    return usergorm.db.Close()
 }
 
 /* ==============================*/
@@ -46,37 +65,14 @@ func (userSrv *UserService) Close() error {
 /* ==============================*/
 
 /**
- * @brief:  Create provided user and backfill data
+ * @brief:  Create provided user
  *
  * @param:  user - User information as struct
  *
  * @return: nil on success, else error
  **/
-func (userSrv *UserService) Create(user *User) error {
-    /* Season textbased password with salt and pepper to get hash */
-    pwBytes := []byte(user.Password + userPwPepper)
-    hashedBytes, err := bcrypt.GenerateFromPassword(
-        pwBytes, bcrypt.DefaultCost,
-    )
-    if err != nil {
-        return err
-    }
-
-    /* Store hashed password and forget textbase password */
-    user.PasswordHash = string(hashedBytes)
-    user.Password = ""
-
-    /* Set up remember token */
-    if user.Remember == "" {
-        token, err := compat.RememberToken()
-        if err != nil {
-            return err
-        }
-        user.Remember = token
-    }
-    user.RememberHash = userSrv.hmac.Hash(user.Remember)
-
-    return userSrv.db.Create(user).Error
+func (usergorm *userGorm) Create(user *User) error {
+    return usergorm.db.Create(user).Error
 }
 
 /**
@@ -86,12 +82,8 @@ func (userSrv *UserService) Create(user *User) error {
  *
  * @return: nil on success, else error
  **/
-func (userSrv *UserService) Update(user *User) error {
-    if user.Remember != "" {
-        user.RememberHash = userSrv.hmac.Hash(user.Remember)
-    }
-
-    return userSrv.db.Save(user).Error
+func (usergorm *userGorm) Update(user *User) error {
+    return usergorm.db.Save(user).Error
 }
 
 /**
@@ -100,20 +92,16 @@ func (userSrv *UserService) Update(user *User) error {
  * @param:  id - User to be deleted
  *
  * @return: nil on success
- *          ErrInvalidID if ID is invalid
+ *          ErrIDInvalid if ID is invalid
  *          Else error
  **/
-func (userSrv *UserService) Delete(id uint) error {
-    if id == 0 {
-        return ErrInvalidID
-    }
-
+func (usergorm *userGorm) Delete(id uint) error {
     user := User{
         Model: gorm.Model {
             ID: id,
         },
     }
-    return userSrv.db.Delete(&user).Error
+    return usergorm.db.Delete(&user).Error
 }
 
 /* ==============================*/
@@ -129,9 +117,9 @@ func (userSrv *UserService) Delete(id uint) error {
  *          If user not found, return ErrNotFound
  *          Else, return error
  **/
-func (userSrv *UserService) ByID(id uint) (*User, error) {
+func (usergorm *userGorm) ByID(id uint) (*User, error) {
     var user User
-    db := userSrv.db.Where("id = ?", id)
+    db := usergorm.db.Where("id = ?", id)
     err := first(db, &user)
     if err != nil {
         return nil, err
@@ -149,9 +137,9 @@ func (userSrv *UserService) ByID(id uint) (*User, error) {
  *          If user not found, return ErrNotFound
  *          Else, return error
  **/
-func (userSrv *UserService) ByEmail(email string) (*User, error) {
+func (usergorm *userGorm) ByEmail(email string) (*User, error) {
     var user User
-    db := userSrv.db.Where("email = ?", email)
+    db := usergorm.db.Where("email = ?", email)
     err := first(db, &user)
     if err != nil {
         return nil, err
@@ -163,16 +151,15 @@ func (userSrv *UserService) ByEmail(email string) (*User, error) {
 /**
  * @brief:  Look up a user with given remember token
  *
- * @param:  token - Token of user
+ * @param:  rememberHash - Token of user already hashed
  *
  * @return: If user is found, return nil
  *          If user not found, return ErrNotFound
  *          Else, return error
  **/
-func (userSrv *UserService) ByRemember(token string) (*User, error) {
+func (usergorm *userGorm) ByRemember(rememberHash string) (*User, error) {
     var user User
-    rememberHash := userSrv.hmac.Hash(token)
-    db := userSrv.db.Where("remember_hash = ?", rememberHash)
+    db := usergorm.db.Where("remember_hash = ?", rememberHash)
     err := first(db, &user)
     if err != nil {
         return nil, err
@@ -189,12 +176,12 @@ func (userSrv *UserService) ByRemember(token string) (*User, error) {
  * @param:  password - Users password for account
  *
  * @return: If email addr is invalid, return ErrNotFound
- *          If password is invalid, return ErrInvalidPassword
+ *          If password is invalid, return ErrPasswordIncorrect
  *          If both are vaild, return user
  *          Else, error
  **/
-func (userSrv *UserService) Authenticate(email, password string) (*User, error) {
-    foundUser, err := userSrv.ByEmail(email)
+func (usergorm *userService) Authenticate(email, password string) (*User, error) {
+    foundUser, err := usergorm.ByEmail(email)
     if err != nil {
         return nil, err
     }
@@ -207,7 +194,7 @@ func (userSrv *UserService) Authenticate(email, password string) (*User, error) 
     case nil:
         return foundUser, nil
     case bcrypt.ErrMismatchedHashAndPassword:
-        return nil, ErrInvalidPassword
+        return nil, ErrPasswordIncorrect
     default:
         return nil, err
     }
@@ -223,8 +210,8 @@ func (userSrv *UserService) Authenticate(email, password string) (*User, error) 
  *
  * @return: nil on success, else error
  **/
-func (userSrv *UserService) AutoMigrate() error {
-    err := userSrv.db.AutoMigrate(&User{}).Error
+func (usergorm *userGorm) AutoMigrate() error {
+    err := usergorm.db.AutoMigrate(&User{}).Error
     if err != nil {
         fmt.Println("models: Error on migrating User table: ", err)
     }
@@ -235,12 +222,12 @@ func (userSrv *UserService) AutoMigrate() error {
 /**
  * @brief:  Drops the user table and rebuilds it
  **/
-func (userSrv *UserService) DestructiveReset() error {
-    err := userSrv.db.DropTableIfExists(&User{}).Error
+func (usergorm *userGorm) DestructiveReset() error {
+    err := usergorm.db.DropTableIfExists(&User{}).Error
     if err != nil {
         fmt.Println("models: Error on dropping User table: ", err)
         return err
     }
 
-    return userSrv.AutoMigrate()
+    return usergorm.AutoMigrate()
 }
