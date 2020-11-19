@@ -23,6 +23,16 @@ func newUserValidator(userDB UserDB, hmac compat.HMAC) *userValidator {
     return &userValidator {
         UserDB: userDB,
         hmac:   hmac,
+
+        /**
+         * Email regular expression:
+         *  - `^[a-z0-9._%+\-]+`:
+         *      > At the start of the string, only allow the characters inside of `[]`
+         *  - `[a-z0-9.\-]+`
+         *      > After the `@`, only allow the characters inside of `[]`
+         *  - ``[a-z]{2,16}$
+         *      > After the last `.`, only match the `a-z` characters between 2 and 16 matches
+         **/
         emailRegex: regexp.MustCompile(
             `^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,16}$`),
     }
@@ -48,8 +58,8 @@ func runUserValFns(user *User, fns ...userValFn) error {
 }
 
 /* ==============================*/
-/*      METHODS TO VALIDATION    */
-/*        AND NORMALIZATION      */
+/*      METHODS THAT VALIDATE    */
+/*     AND NORMALIZE USER DATA   */
 /* ==============================*/
 
 /**
@@ -172,6 +182,11 @@ func (userValid *userValidator) ByEmail(email string) (*User, error) {
 
     return userValid.UserDB.ByEmail(user.Email)
 }
+
+/* ==============================*/
+/*      METHODS TO VALIDATION    */
+/*        AND NORMALIZATION      */
+/* ==============================*/
 
 /**
  * @brief:  Checks to see if password is provided
