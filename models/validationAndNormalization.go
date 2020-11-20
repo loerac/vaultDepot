@@ -227,7 +227,7 @@ func (userValid *userValidator) passwordHashRequired(user *User) error {
  **/
 func (userValid *userValidator) passwordMinLength(user *User) error {
     if user.Password == "" {
-        return nil
+        return ErrPasswordRequired
     }
 
     if len(user.Password) < 8 {
@@ -246,7 +246,7 @@ func (userValid *userValidator) passwordMinLength(user *User) error {
  **/
 func (userValid *userValidator) bcryptPassword(user *User) error {
     if user.Password == "" {
-        return nil
+        return ErrPasswordRequired
     }
 
     /* Season textbased password with salt and pepper to get hash */
@@ -274,7 +274,7 @@ func (userValid *userValidator) bcryptPassword(user *User) error {
  **/
 func (userValid *userValidator) rememberMinBytes(user *User) error {
     if user.Remember == "" {
-        return nil
+        return ErrRememberTooShort
     }
 
     n, err := compat.NBtyes(user.Remember)
@@ -329,12 +329,12 @@ func (userValid *userValidator) hmacRemember(user *User) error {
  **/
 func (userValid *userValidator) setRememberIfUnset(user *User) error {
     if user.Remember != "" {
-        return nil
+        return ErrRememberTooShort
     }
 
     token, err := compat.RememberToken()
     if err != nil {
-        return nil
+        return err
     }
 
     user.Remember = token
@@ -394,7 +394,7 @@ func (userValid *userValidator) requireEmail(user *User) error {
  **/
 func (userValid *userValidator) emailFormat(user *User) error {
     if user.Email == "" {
-        return nil
+        return ErrEmailRequired
     }
 
     if !userValid.emailRegex.MatchString(user.Email) {
