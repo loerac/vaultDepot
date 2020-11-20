@@ -14,7 +14,7 @@ import (
  *
  * @return: Users controller
  **/
-func NewUsers(userSrv *models.UserService) *Users {
+func NewUsers(userSrv models.UserService) *Users {
     return &Users {
         NewView: views.NewView("bootstrap", "users/new"),
         LoginView: views.NewView("bootstrap", "users/login"),
@@ -97,7 +97,7 @@ func (userRW *Users) Login(writer http.ResponseWriter, request *http.Request) {
         switch err {
         case models.ErrNotFound:
             fallthrough
-        case models.ErrInvalidPassword:
+        case models.ErrPasswordIncorrect:
             fmt.Fprintln(writer, "Email and/or password is incorrect")
         default:
             http.Error(writer, err.Error(), http.StatusInternalServerError)

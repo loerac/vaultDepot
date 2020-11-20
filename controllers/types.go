@@ -6,9 +6,9 @@ import (
 )
 
 type Users struct {
-    NewView *views.View
-    LoginView *views.View
-    userSrv *models.UserService
+    NewView     *views.View
+    LoginView   *views.View
+    userSrv     models.UserService
 }
 
 type SignupForm struct {
@@ -24,8 +24,8 @@ type LoginForm struct {
 }
 
 type Vaults struct {
-    VaultView *views.View
-    vaultSrv *models.VaultService
+    VaultView   *views.View
+    vaultSrv    *models.VaultService
 }
 
 type VaultForm struct {

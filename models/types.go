@@ -2,6 +2,7 @@ package models
 
 import (
     "fmt"
+    "regexp"
 
     "github.com/loerac/vaultDepot/compat"
 
@@ -12,6 +13,26 @@ const (
     userPwPepper = "secret-random-string"
     hmacSecretKey = "secret-hmac-key"
 )
+
+type UserService interface {
+    Authenticate(email, password string) (*User, error)
+    UserDB
+}
+
+type UserDB interface {
+    ByID(id uint) (*User, error)
+    ByEmail(email string) (*User, error)
+    ByRemember(token string) (*User, error)
+
+    Create(user *User) error
+    Update(user *User) error
+    Delete(id uint) error
+
+    Close() error
+
+    AutoMigrate() error
+    DestructiveReset() error
+}
 
 type User struct {
     gorm.Model
@@ -24,9 +45,18 @@ type User struct {
     RememberHash string `gorm:"not null;unique_index"`
 }
 
-type UserService struct {
+type userService struct {
+    UserDB
+}
+
+type userGorm struct {
     db      *gorm.DB
+}
+
+type userValidator struct {
+    UserDB
     hmac    compat.HMAC
+    emailRegex *regexp.Regexp
 }
 
 type Vault struct {
@@ -40,6 +70,9 @@ type Vault struct {
 type VaultService struct {
     db  *gorm.DB
 }
+
+var _ UserDB = &userGorm{}
+var _ UserService = &userService{}
 
 func (user *User) String() string {
     return fmt.Sprintf("User(Firstname='%s', LastName='%s', Email='%s', Remember='%s')",

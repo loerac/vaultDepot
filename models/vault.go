@@ -67,12 +67,12 @@ func (vaultSrv *VaultService) Update(vault *Vault) error {
  * @param:  id - Vault to be deleted
  *
  * @return: nil on success
- *          ErrInvalidID if ID is invalid
+ *          ErrIDInvalid if ID is invalid
  *          Else error
  **/
 func (vaultSrv *VaultService) Delete(id uint) error {
     if id == 0 {
-        return ErrInvalidID
+        return ErrIDInvalid
     }
 
     vault := Vault{
@@ -135,7 +135,7 @@ func (vaultSrv *VaultService) ByEmail(email string) (*Vault, error) {
  * @param:  password - Vaults password for account
  *
  * @return: If email addr is invalid, return ErrNotFound
- *          If password is invalid, return ErrInvalidPassword
+ *          If password is invalid, return ErrPasswordIncorrect
  *          If both are vaild, return vault
  *          Else, error
  **/
