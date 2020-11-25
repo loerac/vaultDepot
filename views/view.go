@@ -1,7 +1,9 @@
 package views
 
 import (
+    "bytes"
     "html/template"
+    "io"
     "net/http"
     "path/filepath"
 )
@@ -42,14 +44,36 @@ func NewView(layout string, files ...string) *View {
 }
 
 func (view *View) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-    if err := view.Render(writer, nil); err != nil {
-        panic(err)
-    }
+    view.Render(writer, nil)
 }
 
-func (view *View) Render(writer http.ResponseWriter, data interface{}) error {
+/**
+ * @brief:  Render the view with the predined layout
+ *
+ * @param:  writer - Render the template
+ * @param:  data - Info that is being rendered
+ **/
+func (view *View) Render(writer http.ResponseWriter, data interface{}) {
     writer.Header().Set("Content-Type", "text/html")
-    return view.Template.ExecuteTemplate(writer, view.Layout, data)
+
+    switch data.(type) {
+    case Data:
+        // Do nothing
+    default:
+        data = Data {
+            Yield: data,
+        }
+    }
+
+    var buf bytes.Buffer
+    err := view.Template.ExecuteTemplate(&buf, view.Layout, data)
+    if err != nil {
+        http.Error(writer,
+          "OOPSIE WOOPSIE! uwu There's been a fucko wucko.... please email support@vaultdepot.com",
+          http.StatusInternalServerError)
+        return
+    }
+    io.Copy(writer, &buf)
 }
 
 /**
