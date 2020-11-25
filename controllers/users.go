@@ -36,9 +36,7 @@ func NewUsers(userSrv models.UserService) *Users {
  * @action: GET /signup
  **/
 func (userRW *Users) New(writer http.ResponseWriter, request *http.Request) {
-    if err := userRW.NewView.Render(writer, nil); err != nil {
-        panic(err)
-    }
+    userRW.NewView.Render(writer, nil)
 }
 
 /**
@@ -51,9 +49,12 @@ func (userRW *Users) New(writer http.ResponseWriter, request *http.Request) {
  * @action: POST /signup
  **/
 func (userRW *Users) Create(writer http.ResponseWriter, request *http.Request) {
+    viewData := views.Data{}
     form := SignupForm{}
     if err := parseForm(request, &form); err != nil {
-        panic(err)
+        viewData.SetAlert(err)
+        userRW.NewView.Render(writer, viewData)
+        return
     }
 
     user := models.User {
@@ -64,13 +65,14 @@ func (userRW *Users) Create(writer http.ResponseWriter, request *http.Request) {
     }
     err := userRW.userSrv.Create(&user)
     if err != nil {
-        http.Error(writer, err.Error(), http.StatusInternalServerError)
+        viewData.SetAlert(err)
+        userRW.NewView.Render(writer, viewData)
         return
     }
 
     err = userRW.signIn(writer, &user)
     if err != nil {
-        http.Error(writer, err.Error(), http.StatusInternalServerError)
+        http.Redirect(writer, request, "/login", http.StatusFound)
         return
     }
 
@@ -86,10 +88,13 @@ func (userRW *Users) Create(writer http.ResponseWriter, request *http.Request) {
  * @action: POST /login
  **/
 func (userRW *Users) Login(writer http.ResponseWriter, request *http.Request) {
+    viewData := views.Data{}
     form := LoginForm{}
     err := parseForm(request, &form)
     if err != nil {
-        panic(err)
+        viewData.SetAlert(err)
+        userRW.LoginView.Render(writer, viewData)
+        return
     }
 
     user, err := userRW.userSrv.Authenticate(form.Email, form.Passwd)
@@ -98,17 +103,19 @@ func (userRW *Users) Login(writer http.ResponseWriter, request *http.Request) {
         case models.ErrNotFound:
             fallthrough
         case models.ErrPasswordIncorrect:
-            fmt.Fprintln(writer, "Email and/or password is incorrect")
+            viewData.SetupAlert(views.AlertError, "Email and/or password is incorrect")
         default:
-            http.Error(writer, err.Error(), http.StatusInternalServerError)
+            viewData.SetAlert(err)
         }
+        userRW.LoginView.Render(writer, viewData)
 
         return
     }
 
     err = userRW.signIn(writer, user)
     if err != nil {
-        http.Error(writer, err.Error(), http.StatusInternalServerError)
+        viewData.SetAlert(err)
+        userRW.LoginView.Render(writer, viewData)
         return
     }
 
