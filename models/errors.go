@@ -49,5 +49,5 @@ func (err modelError) Public() string {
 }
 
 func (err privateError) Error() string {
-    return string(e)
+    return string(err)
 }

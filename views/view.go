@@ -47,12 +47,12 @@ func (view *View) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
     view.Render(writer, nil)
 }
 
-/***
+/**
  * @brief:  Render the view with the predined layout
  *
  * @param:  writer - Render the template
  * @param:  data - Info that is being rendered
- ***/
+ **/
 func (view *View) Render(writer http.ResponseWriter, data interface{}) {
     writer.Header().Set("Content-Type", "text/html")
 

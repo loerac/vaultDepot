@@ -28,12 +28,12 @@ type Data struct {
     Yield   interface{}
 }
 
-/***
+/**
  * @brief:  Set the level and message of the alert
  *
  * @param:  level - Alert level (success, info, etc)
  * @param:  msg - Message of the alert
- ***/
+ **/
 func (data *Data) SetupAlert(level, msg string) {
     data.Alert = &Alert {
         Level:  level,
@@ -41,12 +41,12 @@ func (data *Data) SetupAlert(level, msg string) {
     }
 }
 
-/***
+/**
  * @brief:  Set up the alert with either the public or generic error
  *          A generic error is only given if the error has sensitive info
  *
  * @param:  err - Details of the error
- ***/
+ **/
 func (data *Data) SetAlert(err error) {
     var msg string
 
@@ -57,8 +57,5 @@ func (data *Data) SetAlert(err error) {
         msg = AlertGeneric
     }
 
-    data.Alert = &Alert {
-        Level:  AlertError,
-        Message: msg,
-    }
+    data.SetupAlert(AlertError, msg)
 }
