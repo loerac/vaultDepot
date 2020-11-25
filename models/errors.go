@@ -5,6 +5,7 @@ import (
 )
 
 type modelError string
+type privateError string
 
 var (
     /* Return when a resource cannot be found in database */
@@ -32,10 +33,10 @@ var (
     ErrEmailTaken modelError = "models: Email address is already taken"
 
     /* Return when a remember token hash isn't provided */
-    ErrRememberRequired modelError = "models: Remember token is required"
+    ErrRememberRequired privateError = "models: Remember token is required"
 
     /* Return when remember token isn't at least 32 bytes */
-    ErrRememberTooShort modelError = "models: Remember token must be at least 32 bytes"
+    ErrRememberTooShort privateError = "models: Remember token must be at least 32 bytes"
 )
 
 func (err modelError) Error() string {
@@ -45,4 +46,8 @@ func (err modelError) Error() string {
 func (err modelError) Public() string {
     str := strings.Replace(string(err), "models: ", "", 1)
     return str
+}
+
+func (err privateError) Error() string {
+    return string(e)
 }
