@@ -2,6 +2,8 @@ package views
 
 import (
     "log"
+
+    "github.com/loerac/vaultDepot/models"
 )
 
 const (
@@ -25,6 +27,7 @@ type Alert struct {
 
 type Data struct {
     Alert   *Alert
+    User    *models.User
     Yield   interface{}
 }
 
