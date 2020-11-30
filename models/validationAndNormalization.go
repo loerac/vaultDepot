@@ -10,6 +10,7 @@ import (
 )
 
 type userValFn func(*User) error
+type vaultValFn func(*Vault) error
 
 /**
  * @brief:  Initialize user validation
@@ -57,6 +58,16 @@ func runUserValFns(user *User, fns ...userValFn) error {
     return nil
 }
 
+func runVaultValFns(vault *Vault, fns ...vaultValFn) error {
+    for _, fn := range fns {
+        if err := fn(vault); err != nil {
+            return err
+        }
+    }
+
+    return nil
+}
+
 /* ==============================*/
 /*      METHODS THAT VALIDATE    */
 /*     AND NORMALIZE USER DATA   */
@@ -92,6 +103,30 @@ func (userValid *userValidator) Create(user *User) error {
 }
 
 /**
+ * @brief:  Create provide vault
+ *
+ * @param:  vault - Vault to create
+ *
+ * @return: nil on success, else error
+ **/
+func (vaultValid *vaultValidator) Create(vault *Vault) error {
+    err := runVaultValFns(vault,
+        vaultValid.userIDRequired,
+        vaultValid.passwordRequired,
+        vaultValid.encryptPassword,
+        vaultValid.applicationRequired,
+        vaultValid.normalizeApplication,
+        vaultValid.normalizeEmail,
+        vaultValid.requireEmail,
+    )
+    if err != nil {
+        return err
+    }
+
+    return vaultValid.VaultDB.Create(vault)
+}
+
+/**
  * @brief:  Update provided user with data
  *
  * @param:  user - User information
@@ -103,9 +138,7 @@ func (userValid *userValidator) Update(user *User) error {
         userValid.passwordMinLength,
         userValid.bcryptPassword,
         userValid.passwordHashRequired,
-        userValid.rememberMinBytes,
         userValid.hmacRemember,
-        userValid.rememberHashRequired,
         userValid.normalizeEmail,
         userValid.requireEmail,
         userValid.emailFormat,
@@ -204,6 +237,21 @@ func (userValid *userValidator) passwordRequired(user *User) error {
 }
 
 /**
+ * @brief:  Checks to see if password is provided
+ *
+ * @param:  vault - Contains password
+ *
+ * @return: nil on success, else ErrPasswordRequired
+ **/
+func (vaultValid *vaultValidator) passwordRequired(vault *Vault) error {
+    if vault.Password == "" {
+        return ErrPasswordRequired
+    }
+
+    return nil
+}
+
+/**
  * @brief:  Checks to see if users password hash has a value
  *
  * @param:  user - Contains password hash
@@ -227,7 +275,7 @@ func (userValid *userValidator) passwordHashRequired(user *User) error {
  **/
 func (userValid *userValidator) passwordMinLength(user *User) error {
     if user.Password == "" {
-        return ErrPasswordRequired
+        return nil
     }
 
     if len(user.Password) < 8 {
@@ -246,7 +294,7 @@ func (userValid *userValidator) passwordMinLength(user *User) error {
  **/
 func (userValid *userValidator) bcryptPassword(user *User) error {
     if user.Password == "" {
-        return ErrPasswordRequired
+        return nil
     }
 
     /* Season textbased password with salt and pepper to get hash */
@@ -261,6 +309,31 @@ func (userValid *userValidator) bcryptPassword(user *User) error {
     /* Store hashed password and forget textbase password */
     user.PasswordHash = string(hashedBytes)
     user.Password = ""
+
+    return nil
+}
+
+/**
+ * @brief:  Hash a user's password, with salt and pepper
+ *
+ * @param:  user - Contains users password
+ *
+ * @return: nil on success, else error
+ **/
+func (vaultValid *vaultValidator) encryptPassword(vault *Vault) error {
+    if vault.Password == "" {
+        return nil
+    }
+
+    aes := compat.NewAES(vault.SecretKey)
+    passwordHash, err := aes.Encrypt(vault.Password)
+    if err != nil {
+        return err
+    }
+
+    /* Store hashed password and forget textbase password */
+    vault.PasswordHash = passwordHash
+    vault.Password = ""
 
     return nil
 }
@@ -357,6 +430,21 @@ func (userValid *userValidator) validId(user *User) error {
 }
 
 /**
+ * @brief:  Check if user ID is greater than 0
+ *
+ * @param:  user - Contains ID
+ *
+ * @return: nil on success, else ErrIDInvalid
+ **/
+func (vaultValid *vaultValidator) userIDRequired(vault *Vault) error {
+    if vault.UserID <= 0 {
+        return ErrUserIDRequried
+    }
+
+    return nil
+}
+
+/**
  * @brief:  Change email to be lower case and
  *          trim any white spaces in email
  *
@@ -371,6 +459,20 @@ func (userValid *userValidator) normalizeEmail(user *User) error {
 }
 
 /**
+ * @brief:  Change email to be lower case and
+ *          trim any white spaces in email
+ *
+ * @param:  vault - Contains email
+ *
+ * @return: nil
+ **/
+func (vaultValid *vaultValidator) normalizeEmail(vault *Vault) error {
+    vault.Email = strings.ToLower(vault.Email)
+    vault.Email = strings.TrimSpace(vault.Email)
+    return nil
+}
+
+/**
  * @brief:  Check to see if email is present
  *
  * @param:  user - Contains email
@@ -379,6 +481,21 @@ func (userValid *userValidator) normalizeEmail(user *User) error {
  **/
 func (userValid *userValidator) requireEmail(user *User) error {
     if user.Email == "" {
+        return ErrEmailRequired
+    }
+
+    return nil
+}
+
+/**
+ * @brief:  Check to see if email is present
+ *
+ * @param:  vault - Contains email
+ *
+ * @return: nil on success, else ErrEmailRequired
+ **/
+func (vaultValid *vaultValidator) requireEmail(vault *Vault) error {
+    if vault.Email == "" {
         return ErrEmailRequired
     }
 
@@ -426,6 +543,34 @@ func (userValid *userValidator) emailIsAvail(user *User) error {
     if user.ID != foundUser.ID {
         return ErrEmailTaken
     }
+
+    return nil
+}
+
+/**
+ * @brief:  Check if application is present
+ *
+ * @param:  vault - Contains application
+ *
+ * @return: nil on success, else ErrApplicationRequired
+ **/
+func (vaultValid *vaultValidator) applicationRequired(vault *Vault) error {
+    if vault.Application == "" {
+        return ErrApplicationRequired
+    }
+
+    return nil
+}
+
+/**
+ * @brief:  Change application to be lower case
+ *
+ * @param:  vault - Contains application
+ *
+ * @return: nil
+ **/
+func (vaultValid *vaultValidator) normalizeApplication(vault *Vault) error {
+    vault.Application = strings.ToLower(vault.Application)
 
     return nil
 }
