@@ -20,3 +20,20 @@ func first(db *gorm.DB, dst interface{}) error {
 
     return err
 }
+
+/**
+ * @brief:  Query provided database and find given items
+ *
+ * @param:  db - Database to query
+ * @param:  dst - Store returned data if found
+ *
+ * @return: nil on success, else error
+ **/
+func find(db *gorm.DB, dst interface{}) error {
+    err := db.Find(dst).Error
+    if err == gorm.ErrRecordNotFound {
+        return ErrNotFound
+    }
+
+    return err
+}

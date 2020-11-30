@@ -14,6 +14,9 @@ var (
     /* Return when invalid ID is provided */
     ErrIDInvalid modelError = "models: ID provided was invalid"
 
+    /* Return when invalid user ID is provided */
+    ErrUserIDRequried privateError = "models: User ID is required"
+
     /* Return when password isn't provided */
     ErrPasswordRequired modelError = "models: Password is required"
 
@@ -37,6 +40,9 @@ var (
 
     /* Return when remember token isn't at least 32 bytes */
     ErrRememberTooShort privateError = "models: Remember token must be at least 32 bytes"
+
+    /* Return when application isn't provided */
+    ErrApplicationRequired modelError = "models: Application is required"
 )
 
 func (err modelError) Error() string {

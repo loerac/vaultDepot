@@ -27,11 +27,6 @@ type UserDB interface {
     Create(user *User) error
     Update(user *User) error
     Delete(id uint) error
-
-    Close() error
-
-    AutoMigrate() error
-    DestructiveReset() error
 }
 
 type User struct {
@@ -43,6 +38,7 @@ type User struct {
     PasswordHash string `gorm:"not null"`
     Remember    string `gorm:"-"`
     RememberHash string `gorm:"not null;unique_index"`
+    SecretKey   string `gorm:"not null"`
 }
 
 type userService struct {
@@ -61,25 +57,53 @@ type userValidator struct {
 
 type Vault struct {
     gorm.Model
+    UserID      uint   `gorm:"not_null;index"`
+    SecretKey   string `gorm:"-"`
     Email       string `gorm:"not null"`
     Username    string
-    Website     string `gorm:"not null"`
-    Password    string `gorm:"not null"`
+    Application string `gorm:"not null"`
+    Password    string `gorm:"-"`
+    PasswordHash []byte `gorm:"not null"`
 }
 
-type VaultService struct {
-    db  *gorm.DB
+type VaultDB interface {
+    ByID(id uint, key string) (*[]Vault, error)
+    ByUserID(userID uint) ([]Vault, error)
+    Create(vault *Vault) error
+}
+
+type VaultService interface {
+    VaultDB
+}
+
+type vaultGorm struct {
+    db          *gorm.DB
+}
+
+type vaultService struct {
+    VaultDB
+}
+
+type vaultValidator struct {
+    VaultDB
+}
+
+type Services struct {
+    db          *gorm.DB
+    User        UserService
+    Vault       VaultService
 }
 
 var _ UserDB = &userGorm{}
+var _ VaultDB = &vaultGorm{}
 var _ UserService = &userService{}
 
 func (user *User) String() string {
-    return fmt.Sprintf("User(Firstname='%s', LastName='%s', Email='%s', Remember='%s')",
-        user.FirstName, user.LastName, user.Email, user.RememberHash)
+    return fmt.Sprintf("User(Firstname='%s', LastName='%s', Email='%s', Remember='%s', SecretKey='%s')",
+        user.FirstName, user.LastName, user.Email, user.RememberHash, user.SecretKey)
 }
 
 func (vault *Vault) String() string {
-    return fmt.Sprintf("Vault(Email='%s', Username='%s', Website='%s')",
-        vault.Email, vault.Username, vault.Website)
+    return fmt.Sprintf("Vault(Email='%s', Username='%s', Application='%s', SecretKey='%s')",
+        vault.Email, vault.Username, vault.Application, vault.SecretKey)
 }
