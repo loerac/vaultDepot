@@ -1,8 +1,6 @@
 package models
 
 import (
-    //"strings"
-
     "github.com/loerac/vaultDepot/compat"
 
     "github.com/jinzhu/gorm"
