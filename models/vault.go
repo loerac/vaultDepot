@@ -48,6 +48,7 @@ func (vaultgorm *vaultGorm) Create(vault *Vault) error {
  * @brief:  Look up a user with provided ID.
  *
  * @param:  id  - ID of the user
+ * @param:  key - Users key for the vault
  *
  * @return: If user is found, return nil
  *          If user not found, return ErrNotFound
@@ -64,7 +65,7 @@ func (vaultgorm *vaultGorm) ByID(id uint, key string) (*[]Vault, error) {
     if key != "" {
         aes := compat.NewAES(key)
         for i := range vault {
-            password, err := aes.Decrypt(vault[i].PasswordHash)
+            password, err := aes.Decrypt(vault[i].PasswordCipher)
             if err != nil {
                 return nil, err
             }

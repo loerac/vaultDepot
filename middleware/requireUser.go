@@ -18,8 +18,7 @@ type RequireUser struct {}
  *          If logged in, call next.
  *          Else, redirect to sign in
  *
- * @param:  writer - Render the html template
- * @param:  request - Input data from user
+ * @param:  next - Handler function view template
  *
  * @return: HandlerFunc to next page or sign in
  **/
@@ -38,8 +37,7 @@ func (reqUser *RequireUser) ApplyFn(next http.HandlerFunc) http.HandlerFunc {
 /**
  * @brief:  Get the remember token cookie and look up the user
  *
- * @param:  writer - Render the html template
- * @param:  request - Input data from user
+ * @param:  next - Handler function view template
  *
  * @return: HandlerFunc to next page or sign in
  **/
@@ -64,10 +62,26 @@ func (user *User) ApplyFn(next http.HandlerFunc) http.HandlerFunc {
     })
 }
 
+/**
+ * @brief:  Apply the middleware to the http.Handler interface,
+ *          this by passes the ServeHTTP method
+ *
+ * @param:  next - Handler function view template
+ *
+ * @return: Handler function of view template
+ **/
 func (reqUser *RequireUser) Apply(next http.Handler) http.HandlerFunc {
     return reqUser.ApplyFn(next.ServeHTTP)
 }
 
+/**
+ * @brief:  Apply the middleware to the http.Handler interface,
+ *          this by passes the ServeHTTP method
+ *
+ * @param:  next - Handler function view template
+ *
+ * @return: Handler function of view template
+ **/
 func (user *User) Apply(next http.Handler) http.HandlerFunc {
     return user.ApplyFn(next.ServeHTTP)
 }

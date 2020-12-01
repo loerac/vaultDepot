@@ -63,7 +63,7 @@ type Vault struct {
     Username    string
     Application string `gorm:"not null"`
     Password    string `gorm:"-"`
-    PasswordHash []byte `gorm:"not null"`
+    PasswordCipher []byte `gorm:"not null"`
 }
 
 type VaultDB interface {

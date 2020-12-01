@@ -53,6 +53,7 @@ func (view *View) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
  * @brief:  Render the view with the predined layout
  *
  * @param:  writer - Render the template
+ * @param:  request - Input data from vault
  * @param:  data - Info that is being rendered
  **/
 func (view *View) Render(writer http.ResponseWriter, request *http.Request, data interface{}) {

@@ -45,6 +45,7 @@ func newUserValidator(userDB UserDB, hmac compat.HMAC) *userValidator {
  *
  * @param:  user - User that is being validated and
  *              normalized
+ * @param:  fns - List of functions to run
  *
  * @return: nil on success, else error
  **/
@@ -58,6 +59,16 @@ func runUserValFns(user *User, fns ...userValFn) error {
     return nil
 }
 
+/**
+ * @brief:  Iterate over each validation and
+ *          normalization function
+ *
+ * @param:  vault - Vault that is being validated and
+ *              normalized
+ * @param:  fns - List of functions to run
+ *
+ * @return: nil on success, else error
+ **/
 func runVaultValFns(vault *Vault, fns ...vaultValFn) error {
     for _, fn := range fns {
         if err := fn(vault); err != nil {
@@ -326,13 +337,13 @@ func (vaultValid *vaultValidator) encryptPassword(vault *Vault) error {
     }
 
     aes := compat.NewAES(vault.SecretKey)
-    passwordHash, err := aes.Encrypt(vault.Password)
+    passwordCipher, err := aes.Encrypt(vault.Password)
     if err != nil {
         return err
     }
 
-    /* Store hashed password and forget textbase password */
-    vault.PasswordHash = passwordHash
+    /* Store ciphered password and forget textbase password */
+    vault.PasswordCipher = passwordCipher
     vault.Password = ""
 
     return nil
