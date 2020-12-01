@@ -26,14 +26,18 @@
                id="username" placeholder="Username">
     </div>
     <div class="form-group">
-        <label for="website">Application</label>
-        <input type="website" name="website" class="form-control"
-               id="website" placeholder="Website, API, etc.">
+        <label for="application">Application</label>
+        <input type="application" name="application" class="form-control"
+               id="application" placeholder="Website, API, etc.">
     </div>
     <div class="form-group">
         <label for="password">Password or Key</label>
         <input type="password" name="password" class="form-control"
-               id="password" placeholder="Password, key, etc.">
+               id="password" placeholder="Password, key, etc."
+               data-toggle="password">
+        <script type="text/javascript">
+            $("#password").password('toggle');
+        </script>
     </div>
     <button type="submit" class="btn btn-success">
         Submit

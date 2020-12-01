@@ -6,6 +6,8 @@ import (
     "io"
     "net/http"
     "path/filepath"
+
+    "github.com/loerac/vaultDepot/context"
 )
 
 var (
@@ -44,29 +46,32 @@ func NewView(layout string, files ...string) *View {
 }
 
 func (view *View) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-    view.Render(writer, nil)
+    view.Render(writer, request, nil)
 }
 
 /**
  * @brief:  Render the view with the predined layout
  *
  * @param:  writer - Render the template
+ * @param:  request - Input data from vault
  * @param:  data - Info that is being rendered
  **/
-func (view *View) Render(writer http.ResponseWriter, data interface{}) {
+func (view *View) Render(writer http.ResponseWriter, request *http.Request, data interface{}) {
     writer.Header().Set("Content-Type", "text/html")
 
-    switch data.(type) {
+    vd := Data{}
+    switch d := data.(type) {
     case Data:
-        // Do nothing
+        vd = d
     default:
-        data = Data {
+        vd = Data {
             Yield: data,
         }
     }
 
+    vd.User = context.User(request.Context())
     var buf bytes.Buffer
-    err := view.Template.ExecuteTemplate(&buf, view.Layout, data)
+    err := view.Template.ExecuteTemplate(&buf, view.Layout, vd)
     if err != nil {
         http.Error(writer,
           "OOPSIE WOOPSIE! uwu There's been a fucko wucko.... please email support@vaultdepot.com",

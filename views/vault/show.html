@@ -1,0 +1,37 @@
+{{define "yield"}}
+<a href="/vault/new" class="btn btn-primary">
+    Add to vault
+</a>
+
+{{range .Vault}}
+<div class="row">
+  <div class="col-md-10 col-md-offset-1">
+      <div class="panel panel-primary">
+        <div class="panel-heading">
+            <h3 class="panel-title">{{.Application}}</h3>
+        </div>
+        <div class="panel-body">
+          <div class="col-md-4">
+            <label>Email</label>
+            <input value="{{.Email}}" class="form-control">
+          </div>
+
+          <div class="col-md-4">
+            <label>Username</label>
+            <input value="{{.Username}}" class="form-control">
+          </div>
+
+          <div class="col-md-4">
+            <label>Password</label>
+            <input type="password" value="{{.Password}}"
+                   data-toggle="password" class="form-control">
+            <script type="text/javascript">
+                $("#password").password('toggle');
+            </script>
+          </div>
+        </div>
+      </div>
+  </div>
+</div>
+{{end}}
+{{end}}

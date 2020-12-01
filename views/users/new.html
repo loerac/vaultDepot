@@ -17,12 +17,12 @@
 <form action="/signup" method="POST">
     <div class="form-group">
         <label for="firstName">First Name</label>
-        <input type="firstName" name="firstName" class="form-control"
+        <input type="text" name="firstName" class="form-control"
                id="firstName" placeholder="First Name">
     </div>
     <div class="form-group">
         <label for="lastName">Last Name</label>
-        <input type="lastName" name="lastName" class="form-control"
+        <input type="text" name="lastName" class="form-control"
                id="lastName" placeholder="Last Name">
     </div>
     <div class="form-group">
@@ -32,11 +32,22 @@
     </div>
     <div class="form-group">
         <label for="password">Password</label>
+
         <input type="password" name="password" class="form-control"
-               id="password" placeholder="Password">
+               id="password" placeholder="Password" data-toggle="password">
+    </div>
+    <div class="form-group">
+        <label for="secretkey">Secret Key</label>
+        <input type="password" name="secretkey" class="form-control"
+               id="secretkey" placeholder="reallySuperHiddenSecretKey"
+               data-toggle="password">
     </div>
     <button type="submit" class="btn btn-success">
         Sign Up
     </button>
 </form>
+
+<script type="text/javascript">
+	$("#password").password('toggle');
+</script>
 {{end}}

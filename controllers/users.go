@@ -36,7 +36,7 @@ func NewUsers(userSrv models.UserService) *Users {
  * @action: GET /signup
  **/
 func (userRW *Users) New(writer http.ResponseWriter, request *http.Request) {
-    userRW.NewView.Render(writer, nil)
+    userRW.NewView.Render(writer, request, nil)
 }
 
 /**
@@ -53,7 +53,7 @@ func (userRW *Users) Create(writer http.ResponseWriter, request *http.Request) {
     form := SignupForm{}
     if err := parseForm(request, &form); err != nil {
         viewData.SetAlert(err)
-        userRW.NewView.Render(writer, viewData)
+        userRW.NewView.Render(writer, request, viewData)
         return
     }
 
@@ -62,11 +62,12 @@ func (userRW *Users) Create(writer http.ResponseWriter, request *http.Request) {
         LastName:   form.LastName,
         Email:      form.Email,
         Password:   form.Passwd,
+        SecretKey:  form.SecretKey,
     }
     err := userRW.userSrv.Create(&user)
     if err != nil {
         viewData.SetAlert(err)
-        userRW.NewView.Render(writer, viewData)
+        userRW.NewView.Render(writer, request, viewData)
         return
     }
 
@@ -76,7 +77,7 @@ func (userRW *Users) Create(writer http.ResponseWriter, request *http.Request) {
         return
     }
 
-    http.Redirect(writer, request, "/cookietest", http.StatusFound)
+    http.Redirect(writer, request, "/vault/new", http.StatusFound)
 }
 
 /**
@@ -93,7 +94,7 @@ func (userRW *Users) Login(writer http.ResponseWriter, request *http.Request) {
     err := parseForm(request, &form)
     if err != nil {
         viewData.SetAlert(err)
-        userRW.LoginView.Render(writer, viewData)
+        userRW.LoginView.Render(writer, request, viewData)
         return
     }
 
@@ -107,7 +108,7 @@ func (userRW *Users) Login(writer http.ResponseWriter, request *http.Request) {
         default:
             viewData.SetAlert(err)
         }
-        userRW.LoginView.Render(writer, viewData)
+        userRW.LoginView.Render(writer, request, viewData)
 
         return
     }
@@ -115,11 +116,11 @@ func (userRW *Users) Login(writer http.ResponseWriter, request *http.Request) {
     err = userRW.signIn(writer, user)
     if err != nil {
         viewData.SetAlert(err)
-        userRW.LoginView.Render(writer, viewData)
+        userRW.LoginView.Render(writer, request, viewData)
         return
     }
 
-    http.Redirect(writer, request, "/cookietest", http.StatusFound)
+    http.Redirect(writer, request, "/vault/account", http.StatusFound)
 }
 
 /* ==============================*/

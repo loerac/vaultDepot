@@ -1,8 +1,6 @@
 package models
 
 import (
-    "fmt"
-
     "github.com/loerac/vaultDepot/compat"
 
     "github.com/jinzhu/gorm"
@@ -16,48 +14,16 @@ import (
  *
  * @param:  connInfo - Information of database
  *
- * @return: UserService on success, else error
+ * @return: New UserService
  **/
-func NewUserService(connInfo string) (UserService, error) {
-    db, err := newUserGorm(connInfo)
-    if err != nil {
-        return nil, err
-    }
-
+func NewUserService(db *gorm.DB) UserService {
+    userGorm := &userGorm{db}
     hmac := compat.NewHMAC(hmacSecretKey)
-    userValid := newUserValidator(db, hmac)
+    userValid := newUserValidator(userGorm, hmac)
 
     return &userService{
         UserDB: userValid,
-    }, nil
-}
-
-/**
- * @brief:  Connecting to user database with GORM
- *
- * @param:  connInfo - Information of database
- *
- * @return: userGorm on success, else error
- **/
-func newUserGorm(connInfo string) (*userGorm, error) {
-    db, err := gorm.Open("postgres", connInfo)
-    if err != nil {
-        return nil, err
     }
-    db.LogMode(true)
-
-    return &userGorm{
-        db:     db,
-    }, nil
-}
-
-/**
- * @brief:  Close the database connection
- *
- * @return: nil on success, else error
- **/
-func (usergorm *userGorm) Close() error {
-    return usergorm.db.Close()
 }
 
 /* ==============================*/
@@ -198,36 +164,4 @@ func (usergorm *userService) Authenticate(email, password string) (*User, error)
     default:
         return nil, err
     }
-}
-
-/* ==============================*/
-/*      METHODS FOR DATABASE     */
-/*           MIGRATION           */
-/* ==============================*/
-
-/**
- * @brief:  Attempt to automatically migrate user table
- *
- * @return: nil on success, else error
- **/
-func (usergorm *userGorm) AutoMigrate() error {
-    err := usergorm.db.AutoMigrate(&User{}).Error
-    if err != nil {
-        fmt.Println("models: Error on migrating User table: ", err)
-    }
-
-    return err
-}
-
-/**
- * @brief:  Drops the user table and rebuilds it
- **/
-func (usergorm *userGorm) DestructiveReset() error {
-    err := usergorm.db.DropTableIfExists(&User{}).Error
-    if err != nil {
-        fmt.Println("models: Error on dropping User table: ", err)
-        return err
-    }
-
-    return usergorm.AutoMigrate()
 }

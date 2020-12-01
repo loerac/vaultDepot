@@ -1,38 +1,28 @@
 package models
 
 import (
-    "fmt"
+    "github.com/loerac/vaultDepot/compat"
 
     "github.com/jinzhu/gorm"
     _ "github.com/jinzhu/gorm/dialects/postgres"
 )
 
 /**
- * @brief:  Connecting to vault database with GORM
+ * @brief:  Initialize vault valitadtor and GORM with
+ *          the database pointer
  *
- * @param:  connInfo - Information of database
+ * @param:  db - GORM database pointer
  *
- * @return: VaultService on success, else error
+ * @return: New VaultService
  **/
-func NewVaultService(connInfo string) (*VaultService, error) {
-    db, err := gorm.Open("postgres", connInfo)
-    if err != nil {
-        return nil, err
+func NewVaultService(db *gorm.DB) VaultService {
+    return &vaultService {
+        VaultDB:    &vaultValidator {
+            VaultDB:    &vaultGorm {
+                db: db,
+            },
+        },
     }
-    db.LogMode(true)
-
-    return &VaultService{
-        db: db,
-    }, nil
-}
-
-/**
- * @brief:  Close the database connection
- *
- * @return: nil on success, else error
- **/
-func (vaultSrv *VaultService) Close() error {
-    return vaultSrv.db.Close()
 }
 
 /* ==============================*/
@@ -46,41 +36,8 @@ func (vaultSrv *VaultService) Close() error {
  *
  * @return: nil on success, else error
  **/
-func (vaultSrv *VaultService) Create(vault *Vault) error {
-    return vaultSrv.db.Create(vault).Error
-}
-
-/**
- * @brief:  Update provided vault with data
- *
- * @param:  vault - Vault information
- *
- * @return: nil on success, else error
- **/
-func (vaultSrv *VaultService) Update(vault *Vault) error {
-    return vaultSrv.db.Save(vault).Error
-}
-
-/**
- * @brief:  Delete provided vault with ID
- *
- * @param:  id - Vault to be deleted
- *
- * @return: nil on success
- *          ErrIDInvalid if ID is invalid
- *          Else error
- **/
-func (vaultSrv *VaultService) Delete(id uint) error {
-    if id == 0 {
-        return ErrIDInvalid
-    }
-
-    vault := Vault{
-        Model: gorm.Model {
-            ID: id,
-        },
-    }
-    return vaultSrv.db.Delete(&vault).Error
+func (vaultgorm *vaultGorm) Create(vault *Vault) error {
+    return vaultgorm.db.Create(vault).Error
 }
 
 /* ==============================*/
@@ -88,94 +45,44 @@ func (vaultSrv *VaultService) Delete(id uint) error {
 /* ==============================*/
 
 /**
- * @brief:  Look up a vault with provided ID.
+ * @brief:  Look up a user with provided ID.
  *
- * @param:  id  - ID of the vault
+ * @param:  id  - ID of the user
+ * @param:  key - Users key for the vault
  *
- * @return: If vault is found, return nil
- *          If vault not found, return ErrNotFound
+ * @return: If user is found, return nil
+ *          If user not found, return ErrNotFound
  *          Else, return error
  **/
-func (vaultSrv *VaultService) ByID(id uint) (*Vault, error) {
-    var vault Vault
-    db := vaultSrv.db.Where("id = ?", id)
-    err := first(db, &vault)
+func (vaultgorm *vaultGorm) ByID(id uint, key string) (*[]Vault, error) {
+    vault := []Vault{}
+    db := vaultgorm.db.Where("user_id = ?", id)
+    err := find(db, &vault)
     if err != nil {
         return nil, err
+    }
+
+    if key != "" {
+        aes := compat.NewAES(key)
+        for i := range vault {
+            password, err := aes.Decrypt(vault[i].PasswordCipher)
+            if err != nil {
+                return nil, err
+            }
+
+            vault[i].Password = password
+        }
     }
 
     return &vault, nil
 }
 
-/**
- * @brief:  Look up a vault with provided email addr
- *
- * @param:  email - Email address of vault
- *
- * @return: If vault is found, return nil
- *          If vault not found, return ErrNotFound
- *          Else, return error
- **/
-func (vaultSrv *VaultService) ByEmail(email string) (*Vault, error) {
-    var vault Vault
-    db := vaultSrv.db.Where("email = ?", email)
-    err := first(db, &vault)
-    if err != nil {
+func (vaultgorm *vaultGorm) ByUserID(userID uint) ([]Vault, error) {
+    vault := []Vault{}
+    db := vaultgorm.db.Where("user_id = ?", userID)
+    if err := db.Find(&vault).Error; err != nil {
         return nil, err
     }
 
-    return &vault, nil
-}
-
-/**
- * @brief:  Authenticate a vault with provided
- *          email addr and password
- *
- * @param:  email - Vaults email address in DB
- * @param:  password - Vaults password for account
- *
- * @return: If email addr is invalid, return ErrNotFound
- *          If password is invalid, return ErrPasswordIncorrect
- *          If both are vaild, return vault
- *          Else, error
- **/
-func (vaultSrv *VaultService) Authenticate(email, password string) (*Vault, error) {
-    foundVault, err := vaultSrv.ByEmail(email)
-    if err != nil {
-        return nil, err
-    }
-
-    return foundVault, nil
-}
-
-/* ==============================*/
-/*      METHODS FOR DATABASE     */
-/*           MIGRATION           */
-/* ==============================*/
-
-/**
- * @brief:  Attempt to automatically migrate vault table
- *
- * @return: nil on success, else error
- **/
-func (vaultSrv *VaultService) AutoMigrate() error {
-    err := vaultSrv.db.AutoMigrate(&Vault{}).Error
-    if err != nil {
-        fmt.Println("models: Error on migrating Vault table: ", err)
-    }
-
-    return err
-}
-
-/**
- * @brief:  Drops the vault table and rebuilds it
- **/
-func (vaultSrv *VaultService) DestructiveReset() error {
-    err := vaultSrv.db.DropTableIfExists(&Vault{}).Error
-    if err != nil {
-        fmt.Println("models: Error on dropping Vault table: ", err)
-        return err
-    }
-
-    return vaultSrv.AutoMigrate()
+    return vault, nil
 }
