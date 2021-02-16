@@ -26,6 +26,15 @@ var (
     /* Return when invalid password is used */
     ErrPasswordIncorrect modelError = "models: Incorrect password"
 
+    /* Return when secret key isn't provided*/
+    ErrSecretKeyRequired modelError = "models: Secret key is required"
+
+    /* Return when secret key length less than 8 */
+    ErrSecretKeyTooShort modelError = "models: Secret key must be at least 8 characters long"
+
+    /* Return when invalid password is used */
+    ErrSecretKeyIncorrect modelError = "models: Incorrect secret key"
+
     /* Return when an email address isn't provided */
     ErrEmailRequired modelError = "models: Email address is required"
 

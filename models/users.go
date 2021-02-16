@@ -1,131 +1,101 @@
 package models
 
 import (
-    "github.com/loerac/vaultDepot/compat"
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
 
+    "github.com/loerac/vaultDepot/compat"
     "github.com/jinzhu/gorm"
-    _ "github.com/jinzhu/gorm/dialects/postgres"
+    _ "github.com/lib/pq"
+
     "golang.org/x/crypto/bcrypt"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 /**
- * @brief:  Initialize user database with GORM, and
- *          initialize user validation
+ * @brief:  Create a new user
  *
- * @param:  connInfo - Information of database
+ * @param:   db - Pointer to database
  *
- * @return: New UserService
+ * @return: On success, a new user
+ *          Else, an error
  **/
-func NewUserService(db *gorm.DB) UserService {
-    userGorm := &userGorm{db}
-    hmac := compat.NewHMAC(hmacSecretKey)
-    userValid := newUserValidator(userGorm, hmac)
-
-    return &userService{
-        UserDB: userValid,
-    }
-}
-
-/* ==============================*/
-/*        METHODS FOR CRUD       */
-/* ==============================*/
-
-/**
- * @brief:  Create provided user
- *
- * @param:  user - User information as struct
- *
- * @return: nil on success, else error
- **/
-func (usergorm *userGorm) Create(user *User) error {
-    return usergorm.db.Create(user).Error
-}
-
-/**
- * @brief:  Update provided user with data
- *
- * @param:  user - User information
- *
- * @return: nil on success, else error
- **/
-func (usergorm *userGorm) Update(user *User) error {
-    return usergorm.db.Save(user).Error
-}
-
-/**
- * @brief:  Delete provided user with ID
- *
- * @param:  id - User to be deleted
- *
- * @return: nil on success
- *          ErrIDInvalid if ID is invalid
- *          Else error
- **/
-func (usergorm *userGorm) Delete(id uint) error {
-    user := User{
-        Model: gorm.Model {
-            ID: id,
-        },
-    }
-    return usergorm.db.Delete(&user).Error
-}
-
-/* ==============================*/
-/*   METHODS TO SEARCH FOR USER  */
-/* ==============================*/
-
-/**
- * @brief:  Look up a user with provided ID.
- *
- * @param:  id  - ID of the user
- *
- * @return: If user is found, return nil
- *          If user not found, return ErrNotFound
- *          Else, return error
- **/
-func (usergorm *userGorm) ByID(id uint) (*User, error) {
-    var user User
-    db := usergorm.db.Where("id = ?", id)
-    err := first(db, &user)
-    if err != nil {
-        return nil, err
+func Signup(db *gorm.DB) (User, error) {
+    username := ""
+    for username == "" {
+        fmt.Print("Enter username: ")
+        fmt.Scanln(&username)
     }
 
-    return &user, nil
+    password := HiddenInput("password")
+    secret_key := HiddenInput("secret key")
+
+    new_user := User {
+        Username: username,
+        Password: password,
+        SecretKey: secret_key,
+    }
+
+    if err := CreateUser(db, &new_user); err != nil {
+        return User{}, err
+    }
+
+    return new_user, nil
+}
+
+/**
+ * @brief:  Log user in
+ *
+ * @param:   db - Pointer to database
+ *
+ * @return: On success, user
+ *          Else, an error
+ **/
+func Login(userdb *gorm.DB) (User, error) {
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Print("Enter Username: ")
+	username, _ := reader.ReadString('\n')
+    username = strings.TrimSpace(username)
+
+	fmt.Print("Enter Password: ")
+	bytePassword, err := terminal.ReadPassword(0)
+	if err != nil {
+        return User{}, err
+	}
+	password := string(bytePassword)
+    password = strings.TrimSpace(password)
+
+	fmt.Print("\nEnter secret key: ")
+	bytePassword, err = terminal.ReadPassword(0)
+	if err != nil {
+        return User{}, err
+	}
+	secret_key := string(bytePassword)
+    secret_key = strings.TrimSpace(secret_key)
+    fmt.Println()
+
+    user, err := Authenticate(userdb, username, password)
+    compat.CheckError(err)
+
+	return *user, nil
 }
 
 /**
  * @brief:  Look up a user with provided email addr
  *
- * @param:  email - Email address of user
+ * @param:  db - Pointer to database
+ * @param:  username - User to look up
  *
- * @return: If user is found, return nil
+ * @return: If user is found, return user
  *          If user not found, return ErrNotFound
  *          Else, return error
  **/
-func (usergorm *userGorm) ByEmail(email string) (*User, error) {
+func ByUsername(userdb *gorm.DB, username string) (*User, error) {
     var user User
-    db := usergorm.db.Where("email = ?", email)
-    err := first(db, &user)
-    if err != nil {
-        return nil, err
-    }
-
-    return &user, nil
-}
-
-/**
- * @brief:  Look up a user with given remember token
- *
- * @param:  rememberHash - Token of user already hashed
- *
- * @return: If user is found, return nil
- *          If user not found, return ErrNotFound
- *          Else, return error
- **/
-func (usergorm *userGorm) ByRemember(rememberHash string) (*User, error) {
-    var user User
-    db := usergorm.db.Where("remember_hash = ?", rememberHash)
+    db := userdb.Where("username = ?", username)
     err := first(db, &user)
     if err != nil {
         return nil, err
@@ -136,18 +106,19 @@ func (usergorm *userGorm) ByRemember(rememberHash string) (*User, error) {
 
 /**
  * @brief:  Authenticate a user with provided
- *          email addr and password
+ *          username and password
  *
- * @param:  email - Users email address in DB
+ * @param:  userdb - db pointer to database
+ * @param:  username - Users username in DB
  * @param:  password - Users password for account
  *
- * @return: If email addr is invalid, return ErrNotFound
+ * @return: If username is invalid, return ErrNotFound
  *          If password is invalid, return ErrPasswordIncorrect
  *          If both are vaild, return user
  *          Else, error
  **/
-func (usergorm *userService) Authenticate(email, password string) (*User, error) {
-    foundUser, err := usergorm.ByEmail(email)
+func Authenticate(userdb *gorm.DB, username, password string) (*User, error) {
+    foundUser, err := ByUsername(userdb, username)
     if err != nil {
         return nil, err
     }
