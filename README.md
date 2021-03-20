@@ -15,5 +15,8 @@ Create a database to store your passwords, I have only tested with Postgres so I
 
 Create an account with a username, password, and secret key. The password is for your account in the database, and the secret key is for encryting and decrypting your passwords.
 
+## Import and Export
+Import a CSV with that has your email, username, application, and password (in textbase form), data needs to be in that order. Also export your password to a CSV file.
+
 ## Access database
 To access your database from where ever you go, you can set up port forwading on modem or use [Dataplicity](https://www.dataplicity.com/) on your machine.
