@@ -54,17 +54,30 @@ func DisplayVault(vaults []Vault) {
 }
 
 /**
- * @brief:  Add an item from the vault
+ * @brief:  Get info from user to add to the vault
  *
  * @param:  db - pointer to dabase
  * @param:  user - contains user ID
  *
  * @return: New vault on success, else error
  **/
-func VaultEntry(db *gorm.DB, user User) (Vault, error) {
+func CreateEntry(db *gorm.DB, user User) (Vault, error) {
     vault := EntryInfo(user.ID)
 
-    if err := CreateEntry(db, &vault, user); err != nil {
+    return VaultEntry(db, vault, user)
+}
+
+/**
+ * @brief:  Add an item from the vault
+ *
+ * @param:  db - pointer to dabase
+ * @param:  vault - vault to add to the dabase
+ * @param:  user - contains user ID
+ *
+ * @return: New vault on success, else error
+ **/
+func VaultEntry(db *gorm.DB, vault Vault, user User) (Vault, error) {
+    if err := CreateVaultEntry(db, &vault, user); err != nil {
         return Vault{}, err
     }
 
@@ -82,11 +95,11 @@ func VaultEntry(db *gorm.DB, user User) (Vault, error) {
  *
  * @return: Updated vault on success, else error
  **/
-func UpdateEntry(db *gorm.DB, vault Vault) (Vault, error) {
+func UpdateEntry(db *gorm.DB, vault Vault, user User) (Vault, error) {
     updated_vault := EntryInfo(vault.UserID)
     updated_vault.ID = vault.ID
 
-    if err := db.Save(&updated_vault).Error; err != nil {
+    if err := UpdateVaultEntry(db, &updated_vault, user); err != nil{
         return Vault{}, err
     }
 

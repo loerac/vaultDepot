@@ -80,11 +80,12 @@ func CreateUser(db *gorm.DB, user *User) error {
 /**
  * @brief:  Create provide user
  *
- * @param:  user - User to create
+ * @param:  vault - Vault to add to the database
+ * @param:  user - User to cipher password
  *
  * @return: nil on success, else error
  **/
-func CreateEntry(db *gorm.DB, vault *Vault, user User) error {
+func CreateVaultEntry(db *gorm.DB, vault *Vault, user User) error {
     err := runVaultValFns(vault, user,
         userIDRequired,
         vaultPasswordRequired,
@@ -99,6 +100,31 @@ func CreateEntry(db *gorm.DB, vault *Vault, user User) error {
     }
 
     return db.Create(&vault).Error
+}
+
+/**
+ * @brief:  Updated provide vault
+ *
+ * @param:  vault - Vault to update
+ * @param:  user - User to cipher password
+ *
+ * @return: nil on success, else error
+ **/
+func UpdateVaultEntry(db *gorm.DB, vault *Vault, user User) error {
+    err := runVaultValFns(vault, user,
+        userIDRequired,
+        vaultPasswordRequired,
+        encryptPassword,
+        applicationRequired,
+        normalizeApplication,
+        normalizeEmail,
+        requireEmail,
+    )
+    if err != nil {
+        return err
+    }
+
+    return db.Save(&vault).Error
 }
 
 /**
