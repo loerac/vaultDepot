@@ -1,11 +1,13 @@
 package main
 
 import (
-	"fmt"
+    "fmt"
+    "strings"
 
-	"github.com/atotto/clipboard"
-    "github.com/loerac/vaultDepot/models"
+    "github.com/atotto/clipboard"
     "github.com/loerac/vaultDepot/compat"
+    "github.com/loerac/vaultDepot/models"
+    "github.com/loerac/vaultDepot/manager"
 
     "github.com/jinzhu/gorm"
     _ "github.com/lib/pq"
@@ -16,13 +18,13 @@ const (
     port     = 5432
     user     = "postgres"
     password = "password"
-    dbname   = "vault_depot"
+    dbname   = "vaultdepot"
 )
 
 var checkError = compat.CheckError
 
 var menu_options []string = []string{"Login", "Signup"}
-var vault_menu_options []string = []string{"Get vault item", "Add vault item", "Exit"}
+var vault_menu_options []string = []string{"Get vault item", "Add vault item", "Export passwords", "Import passwords", "Exit"}
 var vault_options []string = []string{"Copy password to clipboard", "Edit info", "Delete"}
 
 /**
@@ -61,7 +63,7 @@ func main() {
     db, err := gorm.Open("postgres", psqlinfo)
     checkError(err)
     defer db.Close()
-    db.LogMode(true)
+    db.LogMode(false)
     db.AutoMigrate(&models.User{}, &models.Vault{})
 
     var user models.User
@@ -83,7 +85,7 @@ func main() {
     vaults, err := models.FindAll(db, user.ID)
     if err == models.ErrNotFound || len(vaults) == 0 {
         fmt.Println("Looks like you have nothing in your vault, let's update that")
-        vault, err := models.VaultEntry(db, user)
+        vault, err := models.CreateEntry(db, user)
         checkError(err)
         vaults = append(vaults, vault)
     } else if err != nil {
@@ -104,6 +106,7 @@ func main() {
          **/
         input = DisplayOptions(vault_menu_options)
         switch (input) {
+        /* Get vault item */
         case 1:
             models.DisplayVault(vaults)
             for input != -1 {
@@ -131,42 +134,66 @@ func main() {
              * Let user choose to copy password to clipboard,
              * update the info in vault, or delete it.
              **/
-            fmt.Println("Found:", vault)
+            fmt.Println(vault)
             input = DisplayOptions(vault_options)
             switch (input) {
+            /* Copy password to clipboard */
             case 1:
                 fmt.Println("Password copied to clipboard")
 	            clipboard.WriteAll(vault.Password)
+
+            /* Edit entry */
             case 2:
-                fmt.Printf("Update %s from vault? (Y or n): ", vault)
+                fmt.Printf("Update %s? (y or n): ", vault)
                 fmt.Scanln(&char_input)
-                if char_input == "Y" {
-                    updated_vault, err := models.UpdateEntry(db, vault)
+                if strings.ToLower(char_input) == "y" {
+                    updated_vault, err := models.UpdateEntry(db, vault, user)
                     checkError(err)
                     fmt.Printf("Updated: %s\n\n", updated_vault)
                     vaults[entry] = updated_vault
                 } else {
                     fmt.Printf("\n%s wasn't updated\n\n", vault)
                 }
+
+            /* Delete entry */
             case 3:
-                fmt.Printf("Delete %s from vault? (Y or n): ", vault)
+                fmt.Printf("Delete %s from vault? (y or n): ", vault)
                 fmt.Scanln(&char_input)
-                if char_input == "Y" {
+                if strings.ToLower(char_input) == "y" {
                     err = models.DeleteID(db, vault.ID)
                     checkError(err)
                     fmt.Printf("%s was deleted\n\n", vault)
                 } else {
                     fmt.Printf("\n%s wasn't deleted\n\n", vault)
                 }
+
+                vaults, err = models.FindAll(db, user.ID)
+                checkError(err)
             default:
                 break
             }
+
+        /* Add vault item */
         case 2:
-            _, err = models.VaultEntry(db, user)
+            _, err = models.CreateEntry(db, user)
             checkError(err)
 
             vaults, err = models.FindAll(db, user.ID)
             checkError(err)
+
+        /* Export vault */
+        case 3:
+            err = manager.ExportManager(vaults, user)
+            checkError(err)
+
+        /* Import vault */
+        case 4:
+            err = manager.ImportManager(db, user)
+            checkError(err)
+
+            vaults, err = models.FindAll(db, user.ID)
+            checkError(err)
+
         default:
             fmt.Println("Bye bye")
             input = -1
