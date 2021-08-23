@@ -53,12 +53,10 @@ func Filename(port_type bool) string {
  *
  * @return: nil on success, else error
  **/
-//func ImportManager(db *gorm.DB, user models.User) ([]models.Vault, error) {
 func ImportManager(db *gorm.DB, user models.User) error {
     filename := Filename(true)
     file, err := os.Open(filename)
     if nil != err {
-        //return []models.Vault{}, err
         return err
     }
     defer file.Close()
@@ -70,7 +68,6 @@ func ImportManager(db *gorm.DB, user models.User) error {
         return err
     }
 
-    vaults := []models.Vault{}
     for _, row := range rows[1:] {
         vault := models.Vault{
             UserID: user.ID,
@@ -82,15 +79,12 @@ func ImportManager(db *gorm.DB, user models.User) error {
 
         vault, err := models.VaultEntry(db, vault, user)
         if nil != err {
-            //return []models.Vault{}, err
             return err
         }
-        vaults = append(vaults, vault)
     }
 
     fmt.Printf("Imported %s to vault\n", filename)
 
-    //return vaults, nil
     return nil
 }
 
