@@ -1,6 +1,7 @@
 package compat
 
 import (
+    "log"
     "strconv"
 )
 
@@ -14,9 +15,7 @@ import (
  **/
 func StrToInt(str string) int64 {
     num, err := strconv.ParseInt(str, 10, 64)
-    if err != nil {
-        panic(err)
-    }
+    CheckError(err)
 
     return num
 }
@@ -28,6 +27,6 @@ func StrToInt(str string) int64 {
  **/
 func CheckError(err error) {
     if err != nil {
-        panic(err)
+        log.Fatal(err)
     }
 }
