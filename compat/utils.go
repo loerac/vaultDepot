@@ -7,7 +7,6 @@ import (
 
 /**
  * @brief:  Converts a string to an uint64.
- *          Panic if errors
  *
  * @arg:    str - String that is to be converted to uint64
  *
@@ -21,7 +20,7 @@ func StrToInt(str string) int64 {
 }
 
 /**
- * @brief:  Check if any errors occured, panic if so
+ * @brief:  Check if any errors occured
  *
  * @arg:    e - Error
  **/
