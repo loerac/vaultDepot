@@ -11,7 +11,6 @@ import (
     _ "github.com/lib/pq"
 
     "golang.org/x/crypto/bcrypt"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 /**
@@ -60,24 +59,24 @@ func Login(userdb *gorm.DB) (User, error) {
 	username, _ := reader.ReadString('\n')
     username = strings.TrimSpace(username)
 
-	fmt.Print("Enter Password: ")
-	bytePassword, err := terminal.ReadPassword(0)
+    password, err := UserInput("Enter Password")
 	if err != nil {
         return User{}, err
 	}
-	password := string(bytePassword)
-    password = strings.TrimSpace(password)
 
-	fmt.Print("\nEnter secret key: ")
-	bytePassword, err = terminal.ReadPassword(0)
+    secret_key, err := UserInput("Enter secret key")
 	if err != nil {
         return User{}, err
 	}
-	secret_key := string(bytePassword)
-    secret_key = strings.TrimSpace(secret_key)
     fmt.Println()
 
-    user, err := Authenticate(userdb, username, password)
+    login_user := User {
+        Username: username,
+        Password: password,
+        SecretKey: secret_key,
+    }
+
+    user, err := Authenticate(userdb, login_user)
     compat.CheckError(err)
 
 	return *user, nil
@@ -109,30 +108,35 @@ func ByUsername(userdb *gorm.DB, username string) (*User, error) {
  *          username and password
  *
  * @param:  userdb - db pointer to database
- * @param:  username - Users username in DB
- * @param:  password - Users password for account
+ * @param:  auth_user - User to authenticate
  *
  * @return: If username is invalid, return ErrNotFound
  *          If password is invalid, return ErrPasswordIncorrect
  *          If both are vaild, return user
  *          Else, error
  **/
-func Authenticate(userdb *gorm.DB, username, password string) (*User, error) {
-    foundUser, err := ByUsername(userdb, username)
+func Authenticate(userdb *gorm.DB, auth_user User) (*User, error) {
+    foundUser, err := ByUsername(userdb, auth_user.Username)
     if err != nil {
         return nil, err
     }
 
-    err = bcrypt.CompareHashAndPassword(
+    password_err := bcrypt.CompareHashAndPassword(
         []byte(foundUser.PasswordHash),
-        []byte(password + userPwPepper),
+        []byte(auth_user.Password + userPwPepper),
     )
-    switch err {
-    case nil:
-        return foundUser, nil
-    case bcrypt.ErrMismatchedHashAndPassword:
+    secret_key_err := bcrypt.CompareHashAndPassword(
+        []byte(foundUser.SecretKeyHash),
+        []byte(auth_user.SecretKey + userPwPepper),
+    )
+    if password_err == bcrypt.ErrMismatchedHashAndPassword {
         return nil, ErrPasswordIncorrect
-    default:
-        return nil, err
+    } else if secret_key_err == bcrypt.ErrMismatchedHashAndPassword {
+        return nil, ErrSecretKeyIncorrect
+    } else if password_err == nil &&
+              secret_key_err == nil {
+        return foundUser, nil
     }
+
+    return nil, err
 }
