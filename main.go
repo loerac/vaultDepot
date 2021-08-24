@@ -27,6 +27,8 @@ var menu_options []string = []string{"Login", "Signup"}
 var vault_menu_options []string = []string{"Get vault item", "Add vault item", "Export passwords", "Import passwords", "Exit"}
 var vault_options []string = []string{"Copy password to clipboard", "Edit info", "Delete"}
 
+var vaults []models.Vault
+
 /**
  * @brief:  Display the options on the menu
  *
@@ -50,6 +52,81 @@ func DisplayOptions(options []string) int {
     fmt.Println()
 
     return input
+}
+
+/**
+ * @brief:  Display all the entries in the vault and select a specific vault
+ *          entry
+ *
+ * @return: index of the vault selected
+ **/
+func getVaultItems() int {
+    input := 0
+    models.DisplayVault(vaults)
+    for input != -1 {
+        fmt.Print("Enter vault entry ('-1' to exit): ")
+        fmt.Scanln(&input)
+        if input < 0 || input > len(vaults) {
+            if input != -1 {
+                fmt.Println("Entry not found")
+            }
+            continue
+        }
+        break
+    }
+    fmt.Println()
+
+    return input
+}
+
+/**
+ * @brief:  Let user choose to copy password to clipboard, update the info in
+ *          vault, or delete it.
+ *
+ * @arg:    db - Connection to the database
+ * @arg:    user - User information to update a vault entry
+ * @arg:    vault - Selected vault that was selected
+ *
+ * @return: index of the option
+ **/
+func selectVaultOptions(db *gorm.DB, user models.User, vault *models.Vault) {
+    var char_input string
+
+    fmt.Printf("Selected Vault: %v\n", *vault)
+    input := DisplayOptions(vault_options)
+    switch (input) {
+    /* Copy password to clipboard */
+    case 1:
+        fmt.Println("Password copied to clipboard")
+        clipboard.WriteAll(vault.Password)
+
+    /* Edit entry */
+    case 2:
+        fmt.Printf("Update %s? (y or n): ", *vault)
+        fmt.Scanln(&char_input)
+        if strings.ToLower(char_input) == "y" {
+            updated_vault, err := models.UpdateEntry(db, *vault, user)
+            checkError(err)
+            fmt.Printf("Updated: %s\n\n", updated_vault)
+            vault = &updated_vault
+        } else {
+            fmt.Printf("\n%s wasn't updated\n\n", *vault)
+        }
+
+    /* Delete entry */
+    case 3:
+        fmt.Printf("Delete %s from vault? (y or n): ", *vault)
+        fmt.Scanln(&char_input)
+        if strings.ToLower(char_input) == "y" {
+            err := models.DeleteID(db, vault.ID)
+            checkError(err)
+            fmt.Printf("%s was deleted\n\n", *vault)
+        } else {
+            fmt.Printf("\n%s wasn't deleted\n\n", *vault)
+        }
+    default:
+        break
+    }
 }
 
 func main() {
@@ -82,7 +159,7 @@ func main() {
      * If nothing is in the vault, let them add it in
      **/
     fmt.Println("\nWelcome", user.Username)
-    vaults, err := models.FindAll(db, user.ID)
+    vaults, err = models.FindAll(db, user.ID)
     if err == models.ErrNotFound || len(vaults) == 0 {
         fmt.Println("Looks like you have nothing in your vault, let's update that")
         vault, err := models.CreateEntry(db, user)
@@ -94,11 +171,8 @@ func main() {
 
     /**
      * Main loop
-     *
-     * TODO: Make prettier
      **/
     var input int
-    var char_input string
     for input != -1 {
         /**
          * Let user choose to get an item from the vaault,
@@ -108,70 +182,18 @@ func main() {
         switch (input) {
         /* Get vault item */
         case 1:
-            models.DisplayVault(vaults)
-            for input != -1 {
-                fmt.Print("Enter vault entry ('-1' to exit): ")
-                fmt.Scanln(&input)
-                if input < 0 || input > len(vaults) {
-                    if input != -1 {
-                        fmt.Println("Entry not found")
-                    }
-                    continue
-                }
-                break
-            }
-            fmt.Println()
-            if input == -1 {
-                input = 0
+            input = getVaultItems()
+            if -1 == input {
                 break
             }
 
             entry := input - 1
-            vault, err := models.ByID(db, vaults[entry].ID, user)
+            vaults[entry], err = models.ByID(db, vaults[entry].ID, user)
             checkError(err)
 
-            /**
-             * Let user choose to copy password to clipboard,
-             * update the info in vault, or delete it.
-             **/
-            fmt.Println(vault)
-            input = DisplayOptions(vault_options)
-            switch (input) {
-            /* Copy password to clipboard */
-            case 1:
-                fmt.Println("Password copied to clipboard")
-	            clipboard.WriteAll(vault.Password)
-
-            /* Edit entry */
-            case 2:
-                fmt.Printf("Update %s? (y or n): ", vault)
-                fmt.Scanln(&char_input)
-                if strings.ToLower(char_input) == "y" {
-                    updated_vault, err := models.UpdateEntry(db, vault, user)
-                    checkError(err)
-                    fmt.Printf("Updated: %s\n\n", updated_vault)
-                    vaults[entry] = updated_vault
-                } else {
-                    fmt.Printf("\n%s wasn't updated\n\n", vault)
-                }
-
-            /* Delete entry */
-            case 3:
-                fmt.Printf("Delete %s from vault? (y or n): ", vault)
-                fmt.Scanln(&char_input)
-                if strings.ToLower(char_input) == "y" {
-                    err = models.DeleteID(db, vault.ID)
-                    checkError(err)
-                    fmt.Printf("%s was deleted\n\n", vault)
-                } else {
-                    fmt.Printf("\n%s wasn't deleted\n\n", vault)
-                }
-
-                vaults, err = models.FindAll(db, user.ID)
-                checkError(err)
-            default:
-                break
-            }
+            selectVaultOptions(db, user, &vaults[entry])
+            vaults, err = models.FindAll(db, user.ID)
+            checkError(err)
 
         /* Add vault item */
         case 2:
